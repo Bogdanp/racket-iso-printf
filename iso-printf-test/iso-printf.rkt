@@ -63,7 +63,8 @@
     (check-printf "hello % d" (list -5) "hello -5")
     (check-printf "hello %+ d" (list 5) "hello +5")
     (check-printf "hello %+ d" (list -5) "hello -5")
-    (check-printf "hello % o" (list #o644) "hello 644"))
+    (check-printf "hello % o" (list #o644) "hello 644")
+    (check-printf "hello %04hd" (list #xFFFF) "hello -001"))
 
    (test-suite
     "%eE"
@@ -98,7 +99,9 @@
     (check-printf "hello %-+10.2f" (list 1) "hello +1.00     ")
     (check-printf "hello %-+10.0f" (list 1) "hello +1        ")
     (check-printf "hello %#-+10.0f" (list 1) "hello +1.       ")
-    (check-printf "hello %-+10.1f" (list -1.25) "hello -1.3      "))
+    (check-printf "hello %-+10.1f" (list -1.25) "hello -1.3      ")
+    (check-printf "%f %5.02f" (list 'a 52) "0.000000 52.00")
+    (check-printf "%020.5f" (list -123.456) "-0000000000123.45600"))
 
    (test-suite
     "%g"
@@ -114,7 +117,8 @@
     (check-printf "hello % -30g" (list 1234567.89) "hello  1.234568e+06                 ")
     (check-printf "hello %+ 8.*g" (list 2 12.345) "hello      +12")
     (check-printf "hello %+*.*g" (list 12 3 12.345) "hello        +12.3")
-    (check-printf "hello %+.9g" (list 1234.456789) "hello +1234.45679"))
+    (check-printf "hello %+.9g" (list 1234.456789) "hello +1234.45679")
+    (check-printf "%020.5g" (list -123.456) "-0000000000123.46"))
 
    (test-suite
     "%c"
@@ -123,7 +127,7 @@
     (check-printf "hello % 5c there" (list 97) "hello     a there")
     (check-printf "hello % .123c there" (list 97) "hello a there")
     (check-printf "hello %c %c %c" (list 97 98) "hello a b \x00")
-    (check-printf "hello %c" (list 'a) "hello %(invalid)"))
+    (check-printf "hello %c" (list 'a) "hello %(invalid)c"))
 
    (test-suite
     "%s"
@@ -133,15 +137,20 @@
     (check-printf "hello %10s" (list "world") "hello      world")
     (check-printf "hello %-10s" (list "world") "hello world     ")
     (check-printf "hello %5s" (list #"abc") "hello   abc")
-    (check-printf "hello %.3s" (list "friend") "hello fri"))
+    (check-printf "hello %.3s" (list "friend") "hello fri")
+    (check-printf "hello %s" (list 123) "hello %(invalid)s"))
 
    (test-suite
     "%p"
 
-    (check-printf "hello %p" null "hello (null)")
-    (check-printf "hello %p" (list null) "hello (null)")
+    (check-printf "hello %p" null "hello NULL")
+    (check-printf "hello %p" (list null) "hello NULL")
+    (check-printf "hello %20p" (list null) "hello                 NULL")
+    (check-printf "hello %-20p" (list null) "hello NULL                ")
     (check-true (regexp-match? #rx"^hello 0x([0-9a-f]+)$"
-                               (sprintf "hello %p" (list "abc")))))))
+                               (sprintf "hello %p" (list "abc"))))
+    (check-true (regexp-match? #rx"^hello  +0x([0-9a-f]+)$"
+                               (sprintf "hello %10p" (list 'foo)))))))
 
 (module+ test
   (require rackunit/text-ui)

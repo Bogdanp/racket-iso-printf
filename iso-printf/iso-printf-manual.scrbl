@@ -10,16 +10,24 @@
 @defmodule[iso-printf]
 
 This module provides implementations of the ISO standard C @tt{printf}
-family of procedures.
+family of procedures, based on their description in the OpenBSD
+manual.
 
 @defproc[(printf [fmt string?] [arg any/c] ...) void?]{
   Prints the @racket[arg]s to standard output according to the format
   string @racket[fmt].
 
+  The @tt{%n} directive is not currently supported.  The @tt{%q}
+  directive prints the @racket[eq-hash-code] of a value in hex format.
+  Directives typically fail gracefully on invalid or missing input,
+  but malformed format strings may raise an error (eg. specifying a
+  precision value twice).
+
   @examples[
     (require iso-printf)
     (printf "hello\n")
     (printf "%03d\n" 1)
+    (printf "%04hd %04hd\n" #x7FFF #xFFFFFF)
     (printf "%0*.*f\n" 12 3 1234567.89)
     (printf "%+.9g\n" 1234.456789)
   ]

@@ -31,7 +31,7 @@
 (define flag-ladj?   #b0000000100)
 (define flag-sign?   #b0000001000)
 (define flag-space?  #b0000010000)
-(define flag-group?  #b0000100000)
+(define flag-group?  #b0000100000) ;; unused
 (define flag-short?  #b0001000000)
 (define flag-long?   #b0010000000)
 (define flag-quad?   #b0100000000)
@@ -118,7 +118,7 @@
              [(#\x) (values #f #f 16)]
              [(#\X) (values #f #t 16)]
              [else  (values #t #f 10)]))
-         (define (formatter precision n)
+         (define (formatter p n)
            (let ([n (if (exact-integer? n) n 0)])
              (define resized-n
                (cond
@@ -127,6 +127,8 @@
                  [(on? flags flag-short?) (reinterpret (bitwise-and n #xFFFF)             2 signed?)]
                  [(not signed?)           (reinterpret (bitwise-and n #xFFFFFFFF)         4 #f)]
                  [else n]))
+             (define neg?
+               (negative? resized-n))
              (let* ([prefix (cond
                               [(zero? n) ""]
                               [(on? flags flag-alt?)
@@ -139,18 +141,20 @@
                     [prefix (cond
                               [(and signed?
                                     (on? flags flag-sign?)
-                                    (not (negative? resized-n)))
+                                    (not neg?))
                                (string-append "+" prefix)]
                               [(and signed?
                                     (on? flags flag-space?)
-                                    (not (negative? resized-n)))
+                                    (not neg?))
                                (string-append " " prefix)]
+                              [neg?
+                               (string-append "-" prefix)]
                               [else
                                prefix])])
-               (let* ([str (number->string resized-n base)]
+               (let* ([str (number->string (abs resized-n) base)]
                       [str (if upcase? (string-upcase str) str)]
-                      [str (if (and precision (positive? precision))
-                               (~a str #:min-width precision #:align 'right #:pad-string "0")
+                      [str (if (and p (positive? p))
+                               (~a str #:min-width p #:align 'right #:pad-string "0")
                                str)])
                  (if (on? flags flag-zero?)
                      (values prefix str)
@@ -158,65 +162,66 @@
          (values (directive arg flags width precision formatter 0 #t) (add1 idx)))]
 
       [(#\f #\e #\E #\g #\G)
-       (let ([precision (or precision 6)])
-         (define (formatter precision v)
-           (define-values (precision* notation upcase? trailing?)
-             (case c
-               [(#\g)
-                (case (pick-notation precision v)
-                  [(exponential) (values precision                      'exponential #f #f)]
-                  [(positional)  (values (adjust-precision precision v) 'positional  #f #f)])]
-               [(#\G)
-                (case (pick-notation precision v)
-                  [(exponential) (values precision                      'exponential #t #f)]
-                  [(positional)  (values (adjust-precision precision v) 'positional  #t #f)])]
-               [(#\e) (values precision 'exponential #f #t)]
-               [(#\E) (values precision 'exponential #t #t)]
-               [else  (values precision 'positional  #f #t)]))
-           (define n (if (real? v) v 0.0))
-           (define prefix
-             (cond
-               [(and (on? flags flag-sign?)  (not (negative? n))) "+"]
-               [(and (on? flags flag-space?) (not (negative? n))) " "]
-               [else ""]))
-           (define str
-             (~r n
-                 #:notation notation
-                 #:precision (cond
-                               [(on? flags flag-alt?) `(= ,precision*)]
-                               [(zero? precision*) 0]
-                               [trailing? `(= ,precision*)]
-                               [else precision*])))
-           (let ([str (if upcase? (string-upcase str) str)])
-             (if (on? flags flag-zero?)
-                 (values prefix str)
-                 (values "" (string-append prefix str)))))
-         (values (directive arg flags width precision formatter 0.0 #t) (add1 idx)))]
+       (define (formatter p v)
+         (define n (if (real? v) v 0.0))
+         (define-values (precision* notation upcase? trailing?)
+           (case c
+             [(#\g)
+              (case (pick-notation p n)
+                [(exponential) (values p                      'exponential #f #f)]
+                [(positional)  (values (adjust-precision p n) 'positional  #f #f)])]
+             [(#\G)
+              (case (pick-notation p n)
+                [(exponential) (values p                      'exponential #t #f)]
+                [(positional)  (values (adjust-precision p n) 'positional  #t #f)])]
+             [(#\e) (values p 'exponential #f #t)]
+             [(#\E) (values p 'exponential #t #t)]
+             [else  (values p 'positional  #f #t)]))
+         (define neg? (negative? n))
+         (define prefix
+           (cond
+             [(and (on? flags flag-sign?)  (not neg?)) "+"]
+             [(and (on? flags flag-space?) (not neg?)) " "]
+             [neg?                                     "-"]
+             [else                                     ""]))
+         (define str
+           (~r (abs n)
+               #:notation notation
+               #:precision (cond
+                             [(on? flags flag-alt?) `(= ,precision*)]
+                             [(zero? precision*) 0]
+                             [trailing? `(= ,precision*)]
+                             [else precision*])))
+         (let* ([str (if upcase? (string-upcase str) str)])
+           (if (on? flags flag-zero?)
+               (values prefix str)
+               (values "" (string-append prefix str)))))
+       (values (directive arg flags width (or precision 6) formatter 0.0 #t) (add1 idx))]
 
       [(#\s)
-       (define (formatter precision v)
+       (define (formatter p v)
          (define str
            (cond
              [(string? v) v]
              [(bytes? v) (bytes->string/utf-8 v)]
-             [else "%(invalid)"]))
-         (if (and precision (positive? precision))
-             (values "" (substring str 0 (min (string-length str) precision)))
+             [else "%(invalid)s"]))
+         (if (and p (positive? p))
+             (values "" (substring str 0 (min (string-length str) p)))
              (values "" str)))
        (values (directive arg flags width precision formatter "" #t) (add1 idx))]
 
       [(#\c)
-       (define (formatter precision n)
+       (define (formatter _precision n)
          (cond
            [(exact-integer? n) (values "" (integer->char n))]
-           [else (values "" "%(invalid)")]))
+           [else (values "" "%(invalid)c")]))
        (values (directive arg flags width precision formatter 0 #t) (add1 idx))]
 
       [(#\p)
-       (define (formatter precision v)
+       (define (formatter _precision v)
          (if (null? v)
-             (values "" "(null)")
-             (values "0x" (number->string (eq-hash-code v) 16))))
+             (values "" "NULL")
+             (values "" (string-append "0x" (number->string (eq-hash-code v) 16)))))
        (values (directive arg flags width precision formatter null #t) (add1 idx))]
 
       [(#\%)
