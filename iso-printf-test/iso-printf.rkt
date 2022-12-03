@@ -4,7 +4,13 @@
          rackunit)
 
 (define-check (check-printf fmt args expected)
-  (check-equal? (apply sprintf fmt args) expected))
+  (define res
+    (apply sprintf fmt args))
+  (with-check-info
+    (['value res]
+     ['expected expected])
+    (unless (equal? res expected)
+      (fail-check))))
 
 (define iso-printf-suite
   (test-suite
