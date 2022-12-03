@@ -118,7 +118,7 @@
     (check-printf "hello %+ 8.*g" (list 2 12.345) "hello      +12")
     (check-printf "hello %+*.*g" (list 12 3 12.345) "hello        +12.3")
     (check-printf "hello %+.9g" (list 1234.456789) "hello +1234.45679")
-    (check-printf "%020.5g" (list -123.456) "-0000000000123.46"))
+    (check-printf "%020.5g" (list -123.456) "-0000000000000123.46"))
 
    (test-suite
     "%c"
