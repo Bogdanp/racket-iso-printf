@@ -1,5 +1,6 @@
 #lang info
 
+(define license 'BSD-3-Clause)
 (define collection "iso-printf")
 (define deps '("base"
                "iso-printf-lib"))
